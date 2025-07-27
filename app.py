@@ -2,134 +2,274 @@ import streamlit as st
 import random
 import time
 
-# --- 페이지 기본 설정 ---
-st.set_page_config(
-    page_title="랜덤 이름 뽑기",
-    page_icon="🎉",
-    layout="centered"
-)
+# --------------------------------------------------------------------------
+# 페이지 렌더링 함수
+# --------------------------------------------------------------------------
 
-# --- CSS로 디자인 개선 ---
-st.markdown("""
-<style>
-    /* 기본 폰트 및 중앙 정렬 */
-    .stApp {
-        text-align: center;
-    }
-    /* 당첨자 이름 스타일 */
-    .winner-text {
-        font-size: 4.5rem;
-        font-weight: 900;
-        color: #1a73e8; /* 파란색 계열 */
-        text-shadow: 2px 2px 8px rgba(0,0,0,0.2);
-    }
-    /* 남은 사람 태그 스타일 */
-    .participant-tag {
-        display: inline-block;
-        background-color: #f0f2f5;
-        color: #333;
-        padding: 8px 15px;
-        margin: 5px;
-        border-radius: 20px;
-        font-weight: 500;
-        transition: all 0.2s ease-in-out;
-    }
-    .participant-tag:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-</style>
-""", unsafe_allow_html=True)
+def render_input_page():
+    """첫 번째 화면: 사용자로부터 이름 목록을 입력받는 페이지입니다."""
+    st.title("랜덤 선정 프로그램 🎯")
+    st.header("1. 이름 입력")
+    st.write("선정할 사람들의 이름을 한 줄에 한 명씩 입력해주세요.")
 
+    # 사용자가 이름을 입력할 텍스트 영역
+    names_input = st.text_area(
+        "이름 목록:", 
+        height=200, 
+        placeholder="예시)\n홍길동\n이순신\n세종대왕"
+    )
 
-# --- 세션 상태(Session State) 초기화 ---
-# 사용자의 브라우저 세션 동안 데이터를 유지하기 위함
-if 'screen' not in st.session_state:
-    st.session_state.screen = 'input'
-    st.session_state.participants = []
-    st.session_state.remaining_participants = []
-    st.session_state.winner = None
-    st.session_state.name_input_text = "" # 텍스트 입력창 상태 저장
+    # '생성하기' 버튼을 누르면 입력된 이름을 처리
+    if st.button("생성하기", key="generate_button", type="primary"):
+        if names_input:
+            # 입력된 텍스트를 줄바꿈 기준으로 나누고, 빈 줄은 제거
+            names = [name.strip() for name in names_input.split('\n') if name.strip()]
+            if names:
+                # 세션 상태에 이름 목록 저장 및 페이지 전환
+                st.session_state.names_list = names
+                st.session_state.remaining_names = names.copy()
+                st.session_state.page = "selection"
+                st.rerun()
+            else:
+                st.warning("유효한 이름을 입력해주세요.")
+        else:
+            st.warning("이름을 입력해주세요.")
 
-# --- 콜백 함수 (버튼 클릭 시 실행될 로직) ---
-
-def start_picking():
-    """입력된 이름들을 처리하고 뽑기 화면으로 전환합니다."""
-    names_input = st.session_state.name_input_text
-    names = [name.strip() for name in names_input.split('\n') if name.strip()]
+def render_selection_page():
+    """두 번째 화면: 남은 사람들 중에서 한 명을 선정하는 페이지입니다."""
+    st.title("랜덤 선정 프로그램 🎯")
+    st.header("2. 선정하기")
     
-    if len(names) < 2:
-        st.error("최소 2명 이상의 이름을 입력해주세요.", icon="🚨")
-    else:
-        st.session_state.participants = names
-        st.session_state.remaining_participants = names.copy()
-        st.session_state.screen = 'picker'
+    # 남은 사람이 없으면 종료 페이지로 이동
+    if not st.session_state.remaining_names:
+        st.session_state.page = "end"
+        st.rerun()
 
-def pick_winner():
-    """참여자 중 한 명을 랜덤으로 뽑습니다."""
-    if st.session_state.remaining_participants:
-        winner = random.choice(st.session_state.remaining_participants)
-        st.session_state.winner = winner
-        st.session_state.remaining_participants.remove(winner)
+    # 남은 사람 목록 표시
+    st.write(f"**남은 사람 ({len(st.session_state.remaining_names)}명):**")
+    st.info(", ".join(st.session_state.remaining_names))
+    st.write("") # 여백
 
-def restart_app():
-    """모든 상태를 초기화하여 처음 화면으로 돌아갑니다."""
-    st.session_state.screen = 'input'
-    st.session_state.participants = []
-    st.session_state.remaining_participants = []
-    st.session_state.winner = None
-    st.session_state.name_input_text = ""
+    # '한 명 선정하기' 버튼을 누르면 랜덤으로 한 명 선택
+    if st.button("🎉 한 명 선정하기! 🎉", key="pick_one_button", type="primary"):
+        selected_name = random.choice(st.session_state.remaining_names)
+        st.session_state.selected_name = selected_name
+        
+        # 선택된 사람은 남은 목록에서 제거
+        st.session_state.remaining_names.remove(selected_name)
+        st.session_state.page = "result"
+        st.rerun()
 
-
-# --- 화면 렌더링 로직 ---
-
-# 1. 당첨자가 뽑혔을 경우: 당첨자 화면 표시
-if st.session_state.winner:
-    st.title("🎉 축하합니다! 🎉")
-    st.markdown(f"<p class='winner-text'>{st.session_state.winner}</p>", unsafe_allow_html=True)
+def render_result_page():
+    """선정된 사람의 이름을 폭죽 효과와 함께 10초간 보여주는 페이지입니다."""
     
     # 폭죽 효과
     st.balloons()
     
-    # 3초 대기
-    time.sleep(3)
+    st.title("🎉 당첨! 🎉")
     
-    # 당첨자 상태 초기화 후 앱 재실행
-    st.session_state.winner = None
-    st.rerun()
+    selected_name = st.session_state.get("selected_name", "오류 발생")
+    
+    # HTML과 CSS를 사용하여 선택된 이름을 크게 표시
+    st.markdown(f"""
+    <div style="display: flex; justify-content: center; align-items: center; height: 300px; background-color: #f0f2f6; border-radius: 10px; padding: 20px;">
+        <h1 style='text-align: center; font-size: 4.5rem; font-weight: bold; color: #FF4B4B; text-shadow: 2px 2px 4px #cccccc;'>
+            {selected_name}
+        </h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 10초 카운트다운 진행률 표시줄
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i in range(100):
+        progress_bar.progress(i + 1)
+        status_text.text(f"남은 시간: {10 - i//10}초")
+        time.sleep(0.1)
+    
+    progress_bar.empty()
+    status_text.empty()
 
-# 2. 이름 입력 화면
-elif st.session_state.screen == 'input':
-    st.title("🚀 랜덤 이름 뽑기")
-    st.markdown("한 줄에 한 명씩 이름을 입력하고<br>'생성하기' 버튼을 눌러주세요.", unsafe_allow_html=True)
+    # '계속하기' 버튼을 눌러 다음 단계로 진행
+    if st.button("계속하기", key="continue_button"):
+        if not st.session_state.remaining_names:
+            st.session_state.page = "end"
+        else:
+            st.session_state.page = "selection"
+        st.rerun()
+
+def render_end_page():
+    """모든 사람을 선정한 후, 다시 시작할 수 있는 페이지입니다."""
+    st.title("✅ 선정 완료 ✅")
+    st.header("모든 사람을 성공적으로 선정했습니다!")
+    st.balloons()
     
-    st.text_area(
-        "참여자 명단",
-        placeholder="홍길동\n이순신\n세종대왕\n유관순",
-        height=200,
-        key="name_input_text",
-        label_visibility="collapsed"
+    if "names_list" in st.session_state:
+        st.write("**전체 참여자 목록:**")
+        st.success(", ".join(st.session_state.names_list))
+
+    # '처음으로 돌아가기' 버튼을 누르면 모든 상태를 초기화하고 첫 페이지로 이동
+    if st.button("처음으로 돌아가기", key="restart_button"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+# --------------------------------------------------------------------------
+# 메인 애플리케이션 로직
+# --------------------------------------------------------------------------
+
+# Streamlit의 세션 상태(session_state)를 사용하여 페이지 상태와 데이터를 관리합니다.
+# 이렇게 하면 사용자가 버튼을 누를 때마다 정보가 초기화되는 것을 방지할 수 있습니다.
+
+# 앱이 처음 실행될 때 'page' 상태를 'input'으로 초기화
+if "page" not in st.session_state:
+    st.session_state.page = "input"
+
+# 현재 페이지 상태에 따라 적절한 함수를 호출하여 페이지를 렌더링
+if st.session_state.page == "input":
+    render_input_page()
+elif st.session_state.page == "selection":
+    render_selection_page()
+elif st.session_state.page == "result":
+    render_result_page()
+elif st.session_state.page == "end":
+    render_end_page()
+import streamlit as st
+import random
+import time
+
+# --------------------------------------------------------------------------
+# 페이지 렌더링 함수
+# --------------------------------------------------------------------------
+
+def render_input_page():
+    """첫 번째 화면: 사용자로부터 이름 목록을 입력받는 페이지입니다."""
+    st.title("랜덤 선정 프로그램 🎯")
+    st.header("1. 이름 입력")
+    st.write("선정할 사람들의 이름을 한 줄에 한 명씩 입력해주세요.")
+
+    # 사용자가 이름을 입력할 텍스트 영역
+    names_input = st.text_area(
+        "이름 목록:", 
+        height=200, 
+        placeholder="예시)\n홍길동\n이순신\n세종대왕"
     )
-    
-    st.button("생성하기", on_click=start_picking, type="primary", use_container_width=True)
 
-# 3. 이름 뽑기 화면
-elif st.session_state.screen == 'picker':
-    st.title("누가 될까요?")
+    # '생성하기' 버튼을 누르면 입력된 이름을 처리
+    if st.button("생성하기", key="generate_button", type="primary"):
+        if names_input:
+            # 입력된 텍스트를 줄바꿈 기준으로 나누고, 빈 줄은 제거
+            names = [name.strip() for name in names_input.split('\n') if name.strip()]
+            if names:
+                # 세션 상태에 이름 목록 저장 및 페이지 전환
+                st.session_state.names_list = names
+                st.session_state.remaining_names = names.copy()
+                st.session_state.page = "selection"
+                st.rerun()
+            else:
+                st.warning("유효한 이름을 입력해주세요.")
+        else:
+            st.warning("이름을 입력해주세요.")
+
+def render_selection_page():
+    """두 번째 화면: 남은 사람들 중에서 한 명을 선정하는 페이지입니다."""
+    st.title("랜덤 선정 프로그램 🎯")
+    st.header("2. 선정하기")
     
-    # 아직 뽑을 사람이 남았을 경우
-    if st.session_state.remaining_participants:
-        st.metric("남은 사람", f"{len(st.session_state.remaining_participants)}명")
+    # 남은 사람이 없으면 종료 페이지로 이동
+    if not st.session_state.remaining_names:
+        st.session_state.page = "end"
+        st.rerun()
+
+    # 남은 사람 목록 표시
+    st.write(f"**남은 사람 ({len(st.session_state.remaining_names)}명):**")
+    st.info(", ".join(st.session_state.remaining_names))
+    st.write("") # 여백
+
+    # '한 명 선정하기' 버튼을 누르면 랜덤으로 한 명 선택
+    if st.button("🎉 한 명 선정하기! 🎉", key="pick_one_button", type="primary"):
+        selected_name = random.choice(st.session_state.remaining_names)
+        st.session_state.selected_name = selected_name
         
-        # 남은 사람들을 태그 형태로 표시
-        st.markdown("---")
-        tags_html = "".join([f"<span class='participant-tag'>{name}</span>" for name in st.session_state.remaining_participants])
-        st.markdown(f"<div>{tags_html}</div>", unsafe_allow_html=True)
-        st.markdown("---")
+        # 선택된 사람은 남은 목록에서 제거
+        st.session_state.remaining_names.remove(selected_name)
+        st.session_state.page = "result"
+        st.rerun()
 
-        st.button("💥 뽑기! 💥", on_click=pick_winner, type="primary", use_container_width=True)
+def render_result_page():
+    """선정된 사람의 이름을 폭죽 효과와 함께 10초간 보여주는 페이지입니다."""
     
-    # 모든 사람을 다 뽑았을 경우
-    else:
-        st.success("모든 사람을 뽑았습니다! 🥳")
-        st.button("처음으로 돌아가기", on_click=restart_app, use_container_width=True)
+    # 폭죽 효과
+    st.balloons()
+    
+    st.title("🎉 당첨! 🎉")
+    
+    selected_name = st.session_state.get("selected_name", "오류 발생")
+    
+    # HTML과 CSS를 사용하여 선택된 이름을 크게 표시
+    st.markdown(f"""
+    <div style="display: flex; justify-content: center; align-items: center; height: 300px; background-color: #f0f2f6; border-radius: 10px; padding: 20px;">
+        <h1 style='text-align: center; font-size: 4.5rem; font-weight: bold; color: #FF4B4B; text-shadow: 2px 2px 4px #cccccc;'>
+            {selected_name}
+        </h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 10초 카운트다운 진행률 표시줄
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i in range(100):
+        progress_bar.progress(i + 1)
+        status_text.text(f"남은 시간: {10 - i//10}초")
+        time.sleep(0.1)
+    
+    progress_bar.empty()
+    status_text.empty()
+
+    # '계속하기' 버튼을 눌러 다음 단계로 진행
+    if st.button("계속하기", key="continue_button"):
+        if not st.session_state.remaining_names:
+            st.session_state.page = "end"
+        else:
+            st.session_state.page = "selection"
+        st.rerun()
+
+def render_end_page():
+    """모든 사람을 선정한 후, 다시 시작할 수 있는 페이지입니다."""
+    st.title("✅ 선정 완료 ✅")
+    st.header("모든 사람을 성공적으로 선정했습니다!")
+    st.balloons()
+    
+    if "names_list" in st.session_state:
+        st.write("**전체 참여자 목록:**")
+        st.success(", ".join(st.session_state.names_list))
+
+    # '처음으로 돌아가기' 버튼을 누르면 모든 상태를 초기화하고 첫 페이지로 이동
+    if st.button("처음으로 돌아가기", key="restart_button"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+# --------------------------------------------------------------------------
+# 메인 애플리케이션 로직
+# --------------------------------------------------------------------------
+
+# Streamlit의 세션 상태(session_state)를 사용하여 페이지 상태와 데이터를 관리합니다.
+# 이렇게 하면 사용자가 버튼을 누를 때마다 정보가 초기화되는 것을 방지할 수 있습니다.
+
+# 앱이 처음 실행될 때 'page' 상태를 'input'으로 초기화
+if "page" not in st.session_state:
+    st.session_state.page = "input"
+
+# 현재 페이지 상태에 따라 적절한 함수를 호출하여 페이지를 렌더링
+if st.session_state.page == "input":
+    render_input_page()
+elif st.session_state.page == "selection":
+    render_selection_page()
+elif st.session_state.page == "result":
+    render_result_page()
+elif st.session_state.page == "end":
+    render_end_page()
+
