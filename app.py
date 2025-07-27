@@ -62,7 +62,7 @@ def render_selection_page():
         st.rerun()
 
 def render_result_page():
-    """선정된 사람의 이름을 폭죽 효과와 함께 3초간 보여주는 페이지입니다."""
+    """선정된 사람의 이름을 폭죽 효과와 함께 3초간 보여주고 자동으로 다음 화면으로 넘어갑니다."""
     
     # 폭죽 효과
     st.balloons()
@@ -94,13 +94,13 @@ def render_result_page():
 
     progress_bar.empty()
 
-    # '계속하기' 버튼을 눌러 다음 단계로 진행
-    if st.button("계속하기", key="continue_button"):
-        if not st.session_state.remaining_names:
-            st.session_state.page = "end"
-        else:
-            st.session_state.page = "selection"
-        st.rerun()
+    # 3초 카운트다운 후 자동으로 다음 페이지로 이동합니다.
+    if not st.session_state.remaining_names:
+        st.session_state.page = "end"
+    else:
+        st.session_state.page = "selection"
+    
+    st.rerun()
 
 def render_end_page():
     """모든 사람을 선정한 후, 다시 시작할 수 있는 페이지입니다."""
